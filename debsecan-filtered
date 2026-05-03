@@ -1,0 +1,471 @@
+#!/bin/bash
+# /usr/local/bin/debsecan-filtered
+#
+# Actionable CVE alerting for Debian hosts.
+#
+#   BUCKET A — Patchable (broad): fix available AND
+#     (remotely exploitable OR high/critical urgency OR listening port)
+#
+#   BUCKET B — Unpatched (tight): no fix AND listening port only
+#
+# Pre-filter: Debian-triaged CVEs stripped via default format.
+# Source-package expansion: listening binary packages are expanded to
+# all sibling binaries from the same source package.
+#
+# Caching:
+#   /var/cache/debsecan-filtered/triage-skip.csv  — triaged CVE+pkg combos
+#   /var/cache/debsecan-filtered/seen-cves.csv    — tracks actionable CVEs
+#
+# Flags:
+#   --test          always send email, even if 0 results
+#   --flush-cache   wipe cache directory and exit
+
+set -o pipefail
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+log() { echo "[debsecan-filtered] $*" >&2; }
+
+# ── Config ──────────────────────────────────────────────────────────────────
+SUITE=$(. /etc/os-release && echo "${VERSION_CODENAME}")
+FROM_EMAIL="__FROM_EMAIL__"
+TO_EMAIL="__TO_EMAIL__"
+HOSTNAME=$(hostname -f)
+CACHE_DIR="/var/cache/debsecan-filtered"
+TRIAGE_CSV="$CACHE_DIR/triage-skip.csv"
+SEEN_CSV="$CACHE_DIR/seen-cves.csv"
+TODAY=$(date +%F)
+IS_TEST=""
+
+# ── Parse flags ─────────────────────────────────────────────────────────────
+for arg in "$@"; do
+    case "$arg" in
+        --test)        IS_TEST="--test" ;;
+        --flush-cache)
+            log "Flushing cache directory: $CACHE_DIR"
+            rm -rf "$CACHE_DIR"
+            log "Cache cleared."
+            exit 0
+            ;;
+    esac
+done
+
+log "=========================================="
+log "Script started: $(date)"
+log "Suite:     $SUITE"
+log "Hostname:  $HOSTNAME"
+log "From:      $FROM_EMAIL"
+log "To:        $TO_EMAIL"
+log "Test mode: ${IS_TEST:-no}"
+log "Cache dir: $CACHE_DIR"
+log "=========================================="
+
+mkdir -p "$CACHE_DIR"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 1 — Triage skip list (default format has the flags, detail doesn't)
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 1: Building triage skip list from default format..."
+DEFAULT_RAW=$(debsecan --suite "$SUITE" 2>/dev/null || true)
+DEFAULT_TOTAL=$(echo "$DEFAULT_RAW" | grep -c "^CVE" || true)
+
+# Default format: CVE-XXXX-XXXXX package_name (flag) or <flag> ...
+# Match both (no-dsa) and <no-dsa> styles
+echo "cve_id,package,flag" > "$TRIAGE_CSV"
+echo "$DEFAULT_RAW" | awk '
+/^CVE-/ {
+    cve=$1; pkg=$2
+    if (/[(<]no-dsa[)>]/)       { print cve "," pkg ",no-dsa" }
+    if (/[(<]ignored[)>]/)      { print cve "," pkg ",ignored" }
+    if (/[(<]end-of-life[)>]/)  { print cve "," pkg ",end-of-life" }
+    if (/[(<]not-affected[)>]/) { print cve "," pkg ",not-affected" }
+    if (/[(<]postponed[)>]/)    { print cve "," pkg ",postponed" }
+}
+' >> "$TRIAGE_CSV"
+
+SKIP_COUNT=$(tail -n +2 "$TRIAGE_CSV" | wc -l | tr -d ' ')
+log "  -> Default format lines:  $DEFAULT_TOTAL"
+log "  -> Triage skip entries:   $SKIP_COUNT"
+
+# Build fast lookup (CVE<space>PKG per line)
+tail -n +2 "$TRIAGE_CSV" | awk -F, '{print $1 " " $2}' > "$CACHE_DIR/.skip-lookup"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 2 — Fetch detail format
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 2: Fetching detail-format CVE data..."
+
+log "  Fetching patchable CVEs (--only-fixed)..."
+ALL_FIXED_RAW=$(debsecan --suite "$SUITE" --only-fixed --format detail 2>/dev/null || true)
+RAW_FIXED_COUNT=$(echo "$ALL_FIXED_RAW" | grep -c "^CVE" || true)
+log "  -> $RAW_FIXED_COUNT patchable CVE lines (raw)"
+
+log "  Fetching all CVEs..."
+ALL_VULNS_RAW=$(debsecan --suite "$SUITE" --format detail 2>/dev/null || true)
+RAW_ALL_COUNT=$(echo "$ALL_VULNS_RAW" | grep -c "^CVE" || true)
+log "  -> $RAW_ALL_COUNT total CVE lines (raw)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 3 — Strip triaged CVEs from detail data (block-aware awk)
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 3: Stripping triaged CVEs from detail data..."
+
+# Block-aware awk: CVE- line starts a block. If CVE+PKG is in skip list,
+# suppress block until next CVE- line. Detail lines (e.g. "  installed:")
+# belong to the preceding CVE- line.
+
+strip_triaged() {
+    local input="$1"
+    echo "$input" | awk '
+    BEGIN {
+        while ((getline line < "'"$CACHE_DIR/.skip-lookup"'") > 0) {
+            skip[line] = 1
+        }
+        close("'"$CACHE_DIR/.skip-lookup"'")
+        printing = 1
+    }
+    /^CVE-/ {
+        cve = $1; pkg = $2
+        key = cve " " pkg
+        if (key in skip) { printing = 0 } else { printing = 1 }
+    }
+    printing { print }
+    '
+}
+
+ALL_FIXED=$(strip_triaged "$ALL_FIXED_RAW")
+FIXED_COUNT=$(echo "$ALL_FIXED" | grep -c "^CVE" || true)
+FIXED_STRIPPED=$(( RAW_FIXED_COUNT - FIXED_COUNT ))
+log "  -> Fixed: $RAW_FIXED_COUNT -> $FIXED_COUNT ($FIXED_STRIPPED stripped)"
+
+ALL_VULNS=$(strip_triaged "$ALL_VULNS_RAW")
+ALL_COUNT=$(echo "$ALL_VULNS" | grep -c "^CVE" || true)
+ALL_STRIPPED=$(( RAW_ALL_COUNT - ALL_COUNT ))
+log "  -> All:   $RAW_ALL_COUNT -> $ALL_COUNT ($ALL_STRIPPED stripped)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 4 — Build unfixed list (set difference, awk)
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 4: Building unfixed CVE list..."
+
+# Extract CVE+PKG keys from fixed set
+echo "$ALL_FIXED" | awk '/^CVE-/{print $1 " " $2}' > "$CACHE_DIR/.fixed-keys"
+
+# Keep blocks from ALL_VULNS whose CVE+PKG is NOT in .fixed-keys
+ALL_UNFIXED=$(echo "$ALL_VULNS" | awk '
+BEGIN {
+    while ((getline line < "'"$CACHE_DIR/.fixed-keys"'") > 0) {
+        fixed[line] = 1
+    }
+    close("'"$CACHE_DIR/.fixed-keys"'")
+    printing = 1
+}
+/^CVE-/ {
+    key = $1 " " $2
+    if (key in fixed) { printing = 0 } else { printing = 1 }
+}
+printing { print }
+')
+
+UNFIXED_COUNT=$(echo "$ALL_UNFIXED" | grep -c "^CVE" || true)
+log "  -> $UNFIXED_COUNT unfixed CVE lines"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 5 — Listening packages (with source-package expansion)
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 5: Building listening package list..."
+
+# Step 1: Get initial listening binary packages
+declare -A LISTEN_MAP
+while IFS= read -r line; do
+    PID=$(echo "$line" | grep -oP 'pid=\K\d+' || true)
+    [ -z "$PID" ] && continue
+    EXE=$(readlink -f /proc/"$PID"/exe 2>/dev/null || true)
+    [ -z "$EXE" ] && continue
+    PKG=$(dpkg -S "$EXE" 2>/dev/null | cut -d: -f1 || true)
+    [ -n "$PKG" ] && LISTEN_MAP["$PKG"]=1
+done < <(ss -tlnp 2>/dev/null | grep -v "^State" || true)
+
+INITIAL_COUNT=${#LISTEN_MAP[@]}
+log "  -> $INITIAL_COUNT initial listening package(s): ${!LISTEN_MAP[*]}"
+
+# Step 2: Expand via source packages
+# For each listening binary pkg, find its source package name,
+# then find ALL binary packages built from that source.
+log "  Expanding via source packages..."
+
+declare -A SRC_MAP
+for PKG in "${!LISTEN_MAP[@]}"; do
+    SRC=$(dpkg-query -W -f '${Source}\n' "$PKG" 2>/dev/null | awk '{print $1}')
+    [ -z "$SRC" ] && SRC="$PKG"
+    SRC_MAP["$SRC"]=1
+done
+
+# Get all installed binary -> source mappings in one call
+ALL_PKG_SRC=$(dpkg-query -W -f '${Package}\t${Source}\n' 2>/dev/null || true)
+
+for SRC in "${!SRC_MAP[@]}"; do
+    # Find all binary packages from this source
+    SIBLINGS=$(echo "$ALL_PKG_SRC" | awk -F'\t' -v src="$SRC" '
+    {
+        # Source field may include version: "openssh 1:9.2p1-2+deb12u9"
+        split($2, a, " ")
+        if (a[1] == src) print $1
+    }')
+    ADDED=""
+    while IFS= read -r SIBLING; do
+        [ -z "$SIBLING" ] && continue
+        if [ -z "${LISTEN_MAP[$SIBLING]+x}" ]; then
+            LISTEN_MAP["$SIBLING"]=1
+            ADDED="${ADDED:+$ADDED, }$SIBLING"
+        fi
+    done <<< "$SIBLINGS"
+    if [ -n "$ADDED" ]; then
+        # Find original binary that triggered this source
+        ORIG=""
+        for PKG in "${!LISTEN_MAP[@]}"; do
+            PKG_SRC=$(dpkg-query -W -f '${Source}\n' "$PKG" 2>/dev/null | awk '{print $1}')
+            [ "$PKG_SRC" = "$SRC" ] && ORIG="$PKG" && break
+        done
+        log "    $ORIG -> source: $SRC -> adding: $ADDED"
+    fi
+done
+
+LISTENING_PKGS="${!LISTEN_MAP[*]}"
+LISTEN_COUNT=${#LISTEN_MAP[@]}
+log "  -> Expanded to $LISTEN_COUNT packages: $LISTENING_PKGS"
+
+# Build listening lookup string for awk
+LISTEN_AWK=$(echo "$LISTENING_PKGS" | tr ' ' '\n' | awk 'NF{print}' | paste -sd '|')
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 6 — Filter + dedup (awk-based, block-aware)
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 6: Filtering and deduplicating..."
+
+# --- Bucket A: broad filter (patchable) ---
+log "  Bucket A (patchable, broad criteria)..."
+FILTERED_FIXED=$(echo "$ALL_FIXED" | awk -v listen="$LISTEN_AWK" '
+BEGIN {
+    n = split(listen, arr, "|")
+    for (i=1; i<=n; i++) lpkg[arr[i]] = 1
+    printing = 0
+    buf = ""
+}
+/^CVE-/ {
+    if (printing && buf != "") printf "%s", buf
+    buf = $0 "\n"
+    pkg = $2
+    printing = 0
+    line = tolower($0)
+    if (line ~ /remotely exploitable/) printing = 1
+    if (line ~ /high urgency|critical urgency/) printing = 1
+    if (pkg in lpkg) printing = 1
+    next
+}
+{ buf = buf $0 "\n"; next }
+END { if (printing && buf != "") printf "%s", buf }
+')
+
+# Dedup Bucket A by CVE+PKG (block-aware)
+FILTERED_FIXED=$(echo "$FILTERED_FIXED" | awk '
+/^CVE-/ {
+    if (printing && buf != "") printf "%s", buf
+    key = $1 " " $2
+    if (key in seen) { printing = 0 } else { seen[key] = 1; printing = 1 }
+    buf = $0 "\n"
+    next
+}
+{ buf = buf $0 "\n"; next }
+END { if (printing && buf != "") printf "%s", buf }
+')
+
+COUNT_FIXED=$(echo "$FILTERED_FIXED" | grep -c "^CVE" || true)
+log "  -> $COUNT_FIXED unique patchable CVE(s) (Bucket A)"
+
+# --- Bucket B: tight filter (unpatched, listening only) ---
+log "  Bucket B (unpatched, listening-port-only)..."
+FILTERED_UNFIXED=$(echo "$ALL_UNFIXED" | awk -v listen="$LISTEN_AWK" '
+BEGIN {
+    n = split(listen, arr, "|")
+    for (i=1; i<=n; i++) lpkg[arr[i]] = 1
+    printing = 0
+    buf = ""
+}
+/^CVE-/ {
+    if (printing && buf != "") printf "%s", buf
+    buf = $0 "\n"
+    pkg = $2
+    printing = (pkg in lpkg) ? 1 : 0
+    next
+}
+{ buf = buf $0 "\n"; next }
+END { if (printing && buf != "") printf "%s", buf }
+')
+
+# Dedup Bucket B
+FILTERED_UNFIXED=$(echo "$FILTERED_UNFIXED" | awk '
+/^CVE-/ {
+    if (printing && buf != "") printf "%s", buf
+    key = $1 " " $2
+    if (key in seen) { printing = 0 } else { seen[key] = 1; printing = 1 }
+    buf = $0 "\n"
+    next
+}
+{ buf = buf $0 "\n"; next }
+END { if (printing && buf != "") printf "%s", buf }
+')
+
+COUNT_UNFIXED=$(echo "$FILTERED_UNFIXED" | grep -c "^CVE" || true)
+log "  -> $COUNT_UNFIXED unique unfixed CVE(s) (Bucket B)"
+
+COUNT_TOTAL=$(( COUNT_FIXED + COUNT_UNFIXED ))
+log "  Total actionable: $COUNT_TOTAL ($COUNT_FIXED patchable + $COUNT_UNFIXED unpatched)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 7 — Update seen-cves.csv cache
+# ═══════════════════════════════════════════════════════════════════════════
+log "Phase 7: Updating seen-cves cache..."
+
+# Load old cache into associative array (key=cve+pkg -> first_seen)
+declare -A OLD_CACHE
+OLD_COUNT=0
+if [ -f "$SEEN_CSV" ]; then
+    while IFS=, read -r cve pkg bucket first last; do
+        [ "$cve" = "cve_id" ] && continue  # skip header
+        OLD_CACHE["${cve} ${pkg}"]="$first"
+        OLD_COUNT=$(( OLD_COUNT + 1 ))
+    done < "$SEEN_CSV"
+fi
+
+# Write new cache from current results
+echo "cve_id,package,bucket,first_seen,last_seen" > "$SEEN_CSV"
+NEW_CVE_COUNT=0
+
+# Process Bucket A
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    CVE=$(echo "$line" | awk '{print $1}')
+    PKG=$(echo "$line" | awk '{print $2}')
+    KEY="$CVE $PKG"
+    FIRST="${OLD_CACHE[$KEY]:-$TODAY}"
+    [ "$FIRST" = "$TODAY" ] && [ -z "${OLD_CACHE[$KEY]+x}" ] && NEW_CVE_COUNT=$(( NEW_CVE_COUNT + 1 ))
+    echo "$CVE,$PKG,A,$FIRST,$TODAY" >> "$SEEN_CSV"
+done <<< "$(echo "$FILTERED_FIXED" | grep "^CVE")"
+
+# Process Bucket B
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    CVE=$(echo "$line" | awk '{print $1}')
+    PKG=$(echo "$line" | awk '{print $2}')
+    KEY="$CVE $PKG"
+    FIRST="${OLD_CACHE[$KEY]:-$TODAY}"
+    [ "$FIRST" = "$TODAY" ] && [ -z "${OLD_CACHE[$KEY]+x}" ] && NEW_CVE_COUNT=$(( NEW_CVE_COUNT + 1 ))
+    echo "$CVE,$PKG,B,$FIRST,$TODAY" >> "$SEEN_CSV"
+done <<< "$(echo "$FILTERED_UNFIXED" | grep "^CVE")"
+
+CURRENT_COUNT=$(tail -n +2 "$SEEN_CSV" | wc -l | tr -d ' ')
+log "  -> Previously tracked: $OLD_COUNT"
+log "  -> Currently tracked:  $CURRENT_COUNT"
+log "  -> New since last run: $NEW_CVE_COUNT"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 8 — Build and send email
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── No results ────────────────────────────────────────────────────────────
+if [ "$COUNT_TOTAL" -eq 0 ]; then
+    log "No actionable CVEs found."
+    if [ "$IS_TEST" = "--test" ]; then
+        log "Test mode — sending 'no results' notification..."
+        printf "From: %s\nTo: %s\nSubject: [debsecan] Test - No actionable CVEs - %s\n\nTest run on %s at %s.\n\nNo CVEs matched alert criteria.\n\nPre-filter: %s of %s raw CVEs stripped (Debian-triaged).\n\nBucket A criteria (patchable):\n  Remotely exploitable, high/critical urgency,\n  or package has an open listening port.\n\nBucket B criteria (no patch):\n  Package has an open listening port.\n\nListening packages (expanded): %s\n\nTotals after stripping:\n  All CVEs:      %s\n  Patchable:     %s\n  Unfixed:       %s\n\nNo email would be sent in a normal scheduled run.\n" \
+        "$FROM_EMAIL" "$TO_EMAIL" "$HOSTNAME" "$HOSTNAME" "$(date)" \
+        "$ALL_STRIPPED" "$RAW_ALL_COUNT" \
+        "${LISTENING_PKGS:-<none>}" "$ALL_COUNT" "$FIXED_COUNT" "$UNFIXED_COUNT" \
+        | msmtp "$TO_EMAIL"
+        MSMTP_RC=$?
+        log "  -> msmtp exit code: $MSMTP_RC"
+    else
+        log "Not in test mode — no email sent."
+    fi
+    rm -f "$CACHE_DIR/.skip-lookup" "$CACHE_DIR/.fixed-keys"
+    log "Done."
+    exit 0
+fi
+
+# ── Build email body ──────────────────────────────────────────────────────
+log "Phase 8: Building email body..."
+
+SUBJECT_PREFIX="[debsecan]"
+[ "$IS_TEST" = "--test" ] && SUBJECT_PREFIX="[debsecan] TEST"
+
+BODY=""
+BODY+="$COUNT_TOTAL actionable CVE(s) on $HOSTNAME requiring attention."$'\n'
+BODY+="Generated: $(date)"$'\n'
+BODY+=""$'\n'
+BODY+="Pre-filter: $ALL_STRIPPED of $RAW_ALL_COUNT raw CVEs stripped (Debian-triaged)."$'\n'
+BODY+="New since last run: $NEW_CVE_COUNT"$'\n'
+BODY+=""$'\n'
+BODY+="Bucket A criteria (patchable — fix available):"$'\n'
+BODY+="  Remotely exploitable, high/critical urgency,"$'\n'
+BODY+="  or package has an open listening port."$'\n'
+BODY+=""$'\n'
+BODY+="Bucket B criteria (no patch — network-exposed only):"$'\n'
+BODY+="  Package has an open listening port on this host."$'\n'
+BODY+=""$'\n'
+BODY+="Listening packages (expanded): ${LISTENING_PKGS:-<none>}"$'\n'
+BODY+=""$'\n'
+BODY+="Total CVEs (after stripping): $ALL_COUNT  |  Patchable: $FIXED_COUNT  |  Unfixed: $UNFIXED_COUNT"$'\n'
+
+if [ "$COUNT_FIXED" -gt 0 ]; then
+    log "  Adding Bucket A ($COUNT_FIXED patchable CVEs)..."
+    BODY+=""$'\n'
+    BODY+="================================================================"$'\n'
+    BODY+=" BUCKET A — PATCHABLE ($COUNT_FIXED CVE(s))  →  sudo apt-get upgrade"$'\n'
+    BODY+="================================================================"$'\n'
+    BODY+="$FILTERED_FIXED"
+fi
+
+if [ "$COUNT_UNFIXED" -gt 0 ]; then
+    log "  Adding Bucket B ($COUNT_UNFIXED unpatched CVEs)..."
+    BODY+=""$'\n'
+    BODY+="================================================================"$'\n'
+    BODY+=" BUCKET B — NO PATCH AVAILABLE ($COUNT_UNFIXED CVE(s))  →  manual mitigation required"$'\n'
+    BODY+="================================================================"$'\n'
+    BODY+="These CVEs affect packages with open listening ports but have no"$'\n'
+    BODY+="fix in Debian $SUITE yet. Review each CVE and apply manual mitigations."$'\n'
+    BODY+=""$'\n'
+    BODY+="$FILTERED_UNFIXED"
+    BODY+=""$'\n'
+    BODY+="CVE Reference Links (Debian Security Tracker):"$'\n'
+    BODY+="------------------------------------------------"$'\n'
+    log "  Generating deduplicated tracker links..."
+    while IFS= read -r cve_id; do
+        [ -z "$cve_id" ] && continue
+        BODY+="  https://security-tracker.debian.org/tracker/${cve_id}"$'\n'
+    done <<< "$(echo "$FILTERED_UNFIXED" | awk '/^CVE-/{print $1}' | sort -u)"
+fi
+
+BODY+=""$'\n'
+BODY+="----------------------------------------------------------------"$'\n'
+BODY+="Full CVE list: debsecan --suite $SUITE --format detail"$'\n'
+BODY+="Debian tracker: https://security-tracker.debian.org/tracker/"$'\n'
+BODY+="Cache: $SEEN_CSV"$'\n'
+
+log "Sending via msmtp..."
+log "  Subject: $SUBJECT_PREFIX $COUNT_TOTAL actionable CVE(s) [$COUNT_FIXED patchable, $COUNT_UNFIXED unpatched] - $HOSTNAME"
+
+printf "From: %s\nTo: %s\nSubject: %s %s actionable CVE(s) [%s patchable, %s unpatched] - %s - %s\n\n%s" \
+"$FROM_EMAIL" "$TO_EMAIL" \
+"$SUBJECT_PREFIX" "$COUNT_TOTAL" "$COUNT_FIXED" "$COUNT_UNFIXED" \
+"$HOSTNAME" "$TODAY" \
+"$BODY" | msmtp "$TO_EMAIL"
+MSMTP_RC=$?
+
+log "  -> msmtp exit code: $MSMTP_RC"
+[ $MSMTP_RC -eq 0 ] && log "Email sent successfully." || log "ERROR: msmtp failed — check /var/log/msmtp.log"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE 9 — Cleanup temp files
+# ═══════════════════════════════════════════════════════════════════════════
+rm -f "$CACHE_DIR/.skip-lookup" "$CACHE_DIR/.fixed-keys"
+log "Done."
