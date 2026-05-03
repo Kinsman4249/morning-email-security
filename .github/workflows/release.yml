@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p release-assets
           cp setup-cve-alerts.sh release-assets/
-          cp debsecan-filtered    release-assets/
+          cp debsecan-filtered.sh    release-assets/
           cp uninstall.sh         release-assets/
           cp LICENSE              release-assets/
           cp README.md            release-assets/
@@ -52,7 +52,7 @@ jobs:
           prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
           files: |
             release-assets/setup-cve-alerts.sh
-            release-assets/debsecan-filtered
+            release-assets/debsecan-filtered.sh
             release-assets/uninstall.sh
             release-assets/LICENSE
             release-assets/README.md

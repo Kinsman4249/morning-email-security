@@ -12,8 +12,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional systemd timer alternative to cron-based scheduling
 - Multi-host config-bundle support (deploy to a fleet via one config file)
 - Optional Slack/webhook delivery in addition to email
-- A pre-1.0 → 1.0 hardening pass: full ShellCheck-clean, integration tests in containers, signed releases
 - Lock file to prevent overlapping cron runs on slow networks
+
+## [1.0.0] - 2026-05-03
+
+First stable release. The filter script has been simplified, renamed for clarity, and the install/uninstall flow tightened up.
+
+### Changed (breaking)
+
+- **Filename rename:** `debsecan-filtered` → `debsecan-filtered.sh`. The deployed binary at `/usr/local/bin/debsecan-filtered.sh` and the source script in this repo both use the `.sh` extension. The cron entry `/etc/cron.d/debsecan-report` references the new path. Re-running `setup-cve-alerts.sh` cleanly handles the transition.
+- **Filter pipeline simplified.** The 9-phase pipeline collapsed to 6 phases. CVE triage stripping is now a single in-script awk pass driven by `debsecan` output (`no-dsa`, `ignored`, `end-of-life`, `not-affected`, `postponed`). Functionally equivalent for the common case, easier to read, fewer moving parts.
+- **No external network calls from the filter.** The script trusts Debian's local `debsecan` output and `debsecan`'s own data fetch — no separate Debian Security Tracker JSON API calls. Smaller attack surface, simpler caching.
+- **Cache schema:** the filter now maintains only `seen-cves.csv` (first/last seen per CVE+package). The previous `triage-skip.csv` is no longer written.
+
+### Added
+
+- `curl` is now part of the installer's apt install list (in case any downstream user wants to fetch additional content).
+- `uninstall.sh` v1.0 — REMOVED/SKIPPED summary at the end of the run, single-pass interactive flow, root check up front.
+
+### Fixed
+
+- Minor wording fixes in the setup-summary email body.
+
+### Migration notes (from v0.5.x)
+
+To upgrade an existing install:
+
+```bash
+git pull
+sudo bash setup-cve-alerts.sh
+```
+
+The installer will overwrite the old `/usr/local/bin/debsecan-filtered` (no extension) with the new `/usr/local/bin/debsecan-filtered.sh`, update the cron entry, and re-run the test. The old binary at `/usr/local/bin/debsecan-filtered` is NOT auto-deleted by `setup-cve-alerts.sh`. To clean it up:
+
+```bash
+sudo rm -f /usr/local/bin/debsecan-filtered
+```
+
+Or run the new `uninstall.sh` and then re-install fresh.
 
 ## [0.5.0] - 2026-05-03
 
@@ -40,12 +76,12 @@ Initial public release. Mid-development — core stack is stable and in producti
 - CI: `shellcheck.yml` workflow lints all shell scripts on PR.
 - CI: `release.yml` workflow auto-creates GitHub Releases with downloadable assets when a `v*` tag is pushed.
 
-### Known limitations
+### Known limitations (resolved in v1.0)
 
-- Single-host install only — no fleet/multi-host orchestration in this release.
-- No locking on the filter script — extremely slow networks could in theory overlap two cron runs.
-- Email delivery only — no Slack, webhook, or other delivery backends yet.
-- Tested on Debian 11/12 and Ubuntu 22.04/24.04. Other Debian-derivatives may work but are not exercised in CI.
+- ~~Single-host install only~~ — still single-host in v1.0.
+- ~~No locking on the filter script~~ — still no lock file in v1.0.
+- ~~Email delivery only~~ — still email-only in v1.0.
 
-[Unreleased]: https://github.com/Kinsman4249/morning-email-security/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Kinsman4249/morning-email-security/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Kinsman4249/morning-email-security/releases/tag/v1.0.0
 [0.5.0]: https://github.com/Kinsman4249/morning-email-security/releases/tag/v0.5.0
