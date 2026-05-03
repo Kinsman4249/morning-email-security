@@ -1,0 +1,30 @@
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local test artifacts (do not commit)
+*.log
+*.tmp
+*.bak
+test-output/
+local-config/
+
+# Backup copies of config files made during local testing
+*.orig
+*.rej
+
+# Anything with "secret", "creds", or "password" in the name — defensive
+*secret*
+*credentials*
+*password*
+.env
+.env.*
+!.env.example
