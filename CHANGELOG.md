@@ -31,8 +31,7 @@ Initial public release. Mid-development — core stack is stable and in producti
 - `uninstall.sh` — companion uninstaller that reverses every change made by the installer.
 - Documentation set:
   - `README.md` — canonical install + usage doc.
-  - `docs/SETUP_GUIDE.md` — long-form setup guide (Markdown port of the Word doc).
-  - `docs/SETUP_GUIDE.docx` — original Word document.
+  - `docs/SETUP_GUIDE.md` — long-form setup guide.
   - `docs/ALERT_LOGIC.md` — deep-dive on the 9-phase filter pipeline.
   - `docs/SMTP_PROVIDERS.md` — SMTP provider quick-reference matrix.
   - `docs/TROUBLESHOOTING.md` — extended troubleshooting cookbook.

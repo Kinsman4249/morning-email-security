@@ -228,8 +228,7 @@ Or follow the step-by-step in [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md#uninst
 
 ## Documentation
 
-- **[`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md)** — long-form setup guide (Markdown port of the original Word doc)
-- **[`docs/SETUP_GUIDE.docx`](docs/SETUP_GUIDE.docx)** — original Word document
+- **[`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md)** — long-form setup guide
 - **[`docs/ALERT_LOGIC.md`](docs/ALERT_LOGIC.md)** — deep-dive on the 9-phase filter pipeline
 - **[`docs/SMTP_PROVIDERS.md`](docs/SMTP_PROVIDERS.md)** — SMTP provider quick-reference matrix
 - **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)** — extended troubleshooting cookbook
