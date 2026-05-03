@@ -13,7 +13,7 @@ This guide walks through installing and configuring an automated CVE (Common Vul
 | `msmtp` | Lightweight SMTP relay client. Replaces the system default mail handler. |
 | `apticron` | Daily check for available `apt` package updates. Emails when updates are pending. |
 | `debsecan` | Debian Security Analyzer. Scans installed packages against the Debian Security Tracker. |
-| `debsecan-filtered` | The custom filter (this project) that turns raw `debsecan` output into actionable alerts. |
+| `debsecan-filtered.sh` | The custom filter (this project) that turns raw `debsecan` output into actionable alerts. |
 | `setup-cve-alerts.sh` | The interactive installer (this project). Wires all of the above together. |
 
 ## Prerequisites
@@ -30,7 +30,7 @@ This guide walks through installing and configuring an automated CVE (Common Vul
 Two files are needed, placed in the same directory:
 
 - `setup-cve-alerts.sh` — the installer
-- `debsecan-filtered` — the filter, deployed by the installer
+- `debsecan-filtered.sh` — the filter, deployed by the installer
 
 Both live at the root of this repository, so a `git clone` puts them in the right place.
 
@@ -44,7 +44,7 @@ git clone https://github.com/Kinsman4249/morning-email-security.git
 cd morning-email-security
 
 # Option B: scp the two files
-scp setup-cve-alerts.sh debsecan-filtered user@server:/root/
+scp setup-cve-alerts.sh debsecan-filtered.sh user@server:/root/
 ssh user@server
 cd /root
 ```
@@ -55,7 +55,7 @@ cd /root
 chmod +x setup-cve-alerts.sh
 ```
 
-> The installer sets permissions on `debsecan-filtered` automatically when it deploys it to `/usr/local/bin/`.
+> The installer sets permissions on `debsecan-filtered.sh` automatically when it deploys it to `/usr/local/bin/`.
 
 ### Step 3: Run the installer
 
@@ -116,7 +116,7 @@ The installer performs the following automatically:
 3. Sets `msmtp` as the system default mail handler.
 4. Writes `/etc/apticron/apticron.conf` with the configured email addresses.
 5. Wipes the filter cache (`/var/cache/debsecan-filtered/`) for a clean start.
-6. Deploys `debsecan-filtered` to `/usr/local/bin/` with sender/recipient baked in.
+6. Deploys `debsecan-filtered.sh` to `/usr/local/bin/` with sender/recipient baked in.
 7. Creates `/etc/cron.d/debsecan-report` for the daily CVE scan (07:00 daily).
 8. Runs component status checks.
 9. Sends two test emails:
@@ -135,7 +135,7 @@ Check the configured inbox for the two setup emails. If they don't arrive:
 
 ## Alert Criteria
 
-`debsecan-filtered` evaluates all CVEs reported by `debsecan` and classifies actionable ones into two buckets.
+`debsecan-filtered.sh` evaluates all CVEs reported by `debsecan` and classifies actionable ones into two buckets.
 
 ### Bucket A — Patchable
 
@@ -172,13 +172,13 @@ The default schedule is daily at 07:00 server time. To change it, edit `/etc/cro
 
 ```cron
 # Run at 06:00 instead of 07:00
-0 6 * * * root /usr/local/bin/debsecan-filtered
+0 6 * * * root /usr/local/bin/debsecan-filtered.sh
 
 # Twice daily (07:00 and 17:00)
-0 7,17 * * * root /usr/local/bin/debsecan-filtered
+0 7,17 * * * root /usr/local/bin/debsecan-filtered.sh
 
 # Weekdays only at 08:00
-0 8 * * 1-5 root /usr/local/bin/debsecan-filtered
+0 8 * * 1-5 root /usr/local/bin/debsecan-filtered.sh
 ```
 
 See [`../examples/cron-custom.conf`](../examples/cron-custom.conf) for more snippets.
@@ -188,13 +188,13 @@ See [`../examples/cron-custom.conf`](../examples/cron-custom.conf) for more snip
 Trigger a filter run that always emails (even with zero results):
 
 ```bash
-sudo /usr/local/bin/debsecan-filtered --test
+sudo /usr/local/bin/debsecan-filtered.sh --test
 ```
 
 Wipe the cache to force fresh CVE-state on the next run:
 
 ```bash
-sudo /usr/local/bin/debsecan-filtered --flush-cache
+sudo /usr/local/bin/debsecan-filtered.sh --flush-cache
 ```
 
 ## File Locations
@@ -203,8 +203,8 @@ sudo /usr/local/bin/debsecan-filtered --flush-cache
 | --- | --- |
 | `/etc/msmtprc` | SMTP relay configuration (chmod 600, root only — contains password) |
 | `/etc/apticron/apticron.conf` | apticron notification settings |
-| `/etc/cron.d/debsecan-report` | Daily debsecan-filtered cron entry |
-| `/usr/local/bin/debsecan-filtered` | The deployed filter script |
+| `/etc/cron.d/debsecan-report` | Daily debsecan-filtered.sh cron entry |
+| `/usr/local/bin/debsecan-filtered.sh` | The deployed filter script |
 | `/var/cache/debsecan-filtered/` | Cache directory |
 | `/var/cache/debsecan-filtered/seen-cves.csv` | First-seen / last-seen tracking |
 | `/var/cache/debsecan-filtered/triage-skip.csv` | Debian-triaged CVE skip list |
@@ -222,7 +222,7 @@ Every configuration file is written using truncate-and-replace (`cat > file`):
 - `/etc/msmtprc` — SMTP relay configuration
 - `/etc/apticron/apticron.conf` — apticron notification settings
 - `/etc/cron.d/debsecan-report` — cron schedule for daily CVE scan
-- `/usr/local/bin/debsecan-filtered` — filter script (copied and `sed`-replaced with new email values)
+- `/usr/local/bin/debsecan-filtered.sh` — filter script (copied and `sed`-replaced with new email values)
 
 ### Idempotent operations
 
@@ -232,12 +232,12 @@ Every configuration file is written using truncate-and-replace (`cat > file`):
 
 ### Re-upload files first
 
-The installer removes itself and the `debsecan-filtered` source file from the upload directory as its final cleanup step. To re-run, you must re-fetch both files first:
+The installer removes itself and the `debsecan-filtered.sh` source file from the upload directory as its final cleanup step. To re-run, you must re-fetch both files first:
 
 ```bash
 git pull   # if you cloned
 # or
-scp setup-cve-alerts.sh debsecan-filtered user@server:/root/
+scp setup-cve-alerts.sh debsecan-filtered.sh user@server:/root/
 
 sudo bash setup-cve-alerts.sh
 ```
@@ -277,7 +277,7 @@ If you'd rather do it by hand, run these as root. Each step is independent — s
 rm -f /etc/cron.d/debsecan-report
 
 # 2. Remove the filter script
-rm -f /usr/local/bin/debsecan-filtered
+rm -f /usr/local/bin/debsecan-filtered.sh
 
 # 3. Remove the filter cache
 rm -rf /var/cache/debsecan-filtered
