@@ -47,7 +47,7 @@ assignees: ''
 </details>
 
 <details>
-<summary>Filter output (<code>sudo /usr/local/bin/debsecan-filtered --test 2>&1 | head -100</code>)</summary>
+<summary>Filter output (<code>sudo /usr/local/bin/debsecan-filtered.sh --test 2>&1 | head -100</code>)</summary>
 
 ```text
 <paste here>

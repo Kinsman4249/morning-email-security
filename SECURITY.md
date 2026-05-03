@@ -25,7 +25,7 @@ You should receive an acknowledgment within a few business days. If the issue is
 
 In-scope:
 
-- Vulnerabilities in `setup-cve-alerts.sh`, `debsecan-filtered`, or `uninstall.sh`
+- Vulnerabilities in `setup-cve-alerts.sh`, `debsecan-filtered.sh`, or `uninstall.sh`
 - Insecure default configurations written by the installer (`/etc/msmtprc`, `/etc/apticron/apticron.conf`, `/etc/cron.d/debsecan-report`, etc.)
 - Any path that could allow a non-root user to read SMTP credentials, modify the filter, or escalate privileges
 

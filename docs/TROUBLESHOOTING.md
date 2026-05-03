@@ -85,16 +85,16 @@ Common causes:
 The cron job is silent if no actionable CVEs exist. Confirm by running the filter manually:
 
 ```bash
-sudo /usr/local/bin/debsecan-filtered --test
+sudo /usr/local/bin/debsecan-filtered.sh --test
 ```
 
 `--test` always emails, regardless of result count. If that sends, the daily cron is working — you just have no actionable CVEs (which is the goal, but verify with `--test` periodically).
 
 If the test email DOESN'T arrive, but the setup email did, one of two things is happening:
 1. The filter is hitting an error mid-run. Check `journalctl -u cron --since "1 hour ago"` for stderr output.
-2. The `From:` or `To:` placeholders weren't substituted correctly. Check `/usr/local/bin/debsecan-filtered`:
+2. The `From:` or `To:` placeholders weren't substituted correctly. Check `/usr/local/bin/debsecan-filtered.sh`:
    ```bash
-   sudo grep -E '^FROM_EMAIL|^TO_EMAIL' /usr/local/bin/debsecan-filtered
+   sudo grep -E '^FROM_EMAIL|^TO_EMAIL' /usr/local/bin/debsecan-filtered.sh
    ```
    These should show your real addresses, NOT `__FROM_EMAIL__` / `__TO_EMAIL__`. If they show the placeholders, re-run the installer.
 
@@ -121,11 +121,11 @@ Watch cron logs in real time:
 sudo journalctl -u cron -f
 ```
 
-You should see a line like `(root) CMD (/usr/local/bin/debsecan-filtered)` at 07:00.
+You should see a line like `(root) CMD (/usr/local/bin/debsecan-filtered.sh)` at 07:00.
 
 ## "The filter ran but listening packages are wrong / empty"
 
-Phase 5 of `debsecan-filtered` discovers listening packages via `ss -tlnp`. This requires `ss` to see PIDs, which needs root.
+Phase 5 of `debsecan-filtered.sh` discovers listening packages via `ss -tlnp`. This requires `ss` to see PIDs, which needs root.
 
 ```bash
 # Run as root
@@ -148,8 +148,8 @@ Edge cases:
 Wipe the cache and start fresh:
 
 ```bash
-sudo /usr/local/bin/debsecan-filtered --flush-cache
-sudo /usr/local/bin/debsecan-filtered --test
+sudo /usr/local/bin/debsecan-filtered.sh --flush-cache
+sudo /usr/local/bin/debsecan-filtered.sh --test
 ```
 
 This rebuilds `triage-skip.csv` and `seen-cves.csv` from scratch. The next email will show every actionable CVE as "new since last run" because the cache has no history yet — that's expected, and counts will normalize on subsequent runs.
@@ -161,7 +161,7 @@ By default, Bucket A is broad: patchable AND (remote OR high-urgency OR listenin
 Two ways to tame it:
 
 1. **Patch them.** That's the point of the alerts. `sudo apt-get upgrade` clears the list.
-2. **Tighten the criteria.** Edit `/usr/local/bin/debsecan-filtered`, find the Bucket A awk block in Phase 6, and remove the criteria you don't want. For "listening port only":
+2. **Tighten the criteria.** Edit `/usr/local/bin/debsecan-filtered.sh`, find the Bucket A awk block in Phase 6, and remove the criteria you don't want. For "listening port only":
    ```awk
    if (line ~ /remotely exploitable/) printing = 1   # delete this line
    if (line ~ /high urgency|critical urgency/) printing = 1   # delete this line
@@ -196,4 +196,4 @@ Or follow the manual steps in [`SETUP_GUIDE.md`](SETUP_GUIDE.md#manual-uninstall
 - Your version of this project (commit SHA or tag)
 - The exact command you ran
 - Full error output (with SMTP passwords redacted)
-- Output of `sudo /usr/local/bin/debsecan-filtered --test 2>&1 | head -100`
+- Output of `sudo /usr/local/bin/debsecan-filtered.sh --test 2>&1 | head -100`
