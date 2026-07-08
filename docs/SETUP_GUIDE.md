@@ -29,8 +29,8 @@ This guide walks through installing and configuring an automated CVE (Common Vul
 
 Two files are needed, placed in the same directory:
 
-- `setup-cve-alerts.sh` — the installer
-- `debsecan-filtered.sh` — the filter, deployed by the installer
+- `setup-cve-alerts.sh`- the installer
+- `debsecan-filtered.sh`- the filter, deployed by the installer
 
 Both live at the root of this repository, so a `git clone` puts them in the right place.
 
@@ -88,7 +88,7 @@ sudo FROM_EMAIL="alerts@yourdomain.com" \
      bash setup-cve-alerts.sh
 ```
 
-Any combination works — prefill some, leave others to prompt.
+Any combination works - prefill some, leave others to prompt.
 
 ### Step 5: Confirm configuration
 
@@ -120,8 +120,8 @@ The installer performs the following automatically:
 7. Creates `/etc/cron.d/debsecan-report` for the daily CVE scan (07:00 daily).
 8. Runs component status checks.
 9. Sends two test emails:
-   - **Email 1: Setup summary** — host info, component status, configuration, and CVE totals.
-   - **Email 2: Filtered CVE test run** — the same alert you'll receive every morning, or a "no actionable CVEs" explainer if everything's clean.
+   - **Email 1: Setup summary** - host info, component status, configuration, and CVE totals.
+   - **Email 2: Filtered CVE test run** - the same alert you'll receive every morning, or a "no actionable CVEs" explainer if everything's clean.
 10. Removes the installer files from your upload directory (final cleanup).
 
 ### Step 7: Verify emails
@@ -137,7 +137,7 @@ Check the configured inbox for the two setup emails. If they don't arrive:
 
 `debsecan-filtered.sh` evaluates all CVEs reported by `debsecan` and classifies actionable ones into two buckets.
 
-### Bucket A — Patchable
+### Bucket A - Patchable
 
 CVEs that have a fixed version available in the Debian repositories **and** meet at least one of:
 
@@ -145,9 +145,9 @@ CVEs that have a fixed version available in the Debian repositories **and** meet
 - High or critical urgency
 - Affected package has an open listening port on the host
 
-**Action:** Update the affected package(s) — `sudo apt-get upgrade`.
+**Action:** Update the affected package(s) - `sudo apt-get upgrade`.
 
-### Bucket B — Unpatched, network-exposed
+### Bucket B - Unpatched, network-exposed
 
 CVEs that have **no fix available** in Debian repos, but the affected package has an open listening port on the host.
 
@@ -201,7 +201,7 @@ sudo /usr/local/bin/debsecan-filtered.sh --flush-cache
 
 | Path | Purpose |
 | --- | --- |
-| `/etc/msmtprc` | SMTP relay configuration (chmod 600, root only — contains password) |
+| `/etc/msmtprc` | SMTP relay configuration (chmod 600, root only - contains password) |
 | `/etc/apticron/apticron.conf` | apticron notification settings |
 | `/etc/cron.d/debsecan-report` | Daily debsecan-filtered.sh cron entry |
 | `/usr/local/bin/debsecan-filtered.sh` | The deployed filter script |
@@ -209,7 +209,7 @@ sudo /usr/local/bin/debsecan-filtered.sh --flush-cache
 | `/var/cache/debsecan-filtered/seen-cves.csv` | First-seen / last-seen tracking |
 | `/var/cache/debsecan-filtered/triage-skip.csv` | Debian-triaged CVE skip list |
 | `/var/log/msmtp.log` | SMTP send log |
-| `/etc/mail.rc` | System mail.rc — installer adds `set sendmail=/usr/bin/msmtp` |
+| `/etc/mail.rc` | System mail.rc - installer adds `set sendmail=/usr/bin/msmtp` |
 
 ## Re-installation / Overwrite
 
@@ -219,15 +219,15 @@ Running `setup-cve-alerts.sh` again will cleanly overwrite all previous configur
 
 Every configuration file is written using truncate-and-replace (`cat > file`):
 
-- `/etc/msmtprc` — SMTP relay configuration
-- `/etc/apticron/apticron.conf` — apticron notification settings
-- `/etc/cron.d/debsecan-report` — cron schedule for daily CVE scan
-- `/usr/local/bin/debsecan-filtered.sh` — filter script (copied and `sed`-replaced with new email values)
+- `/etc/msmtprc`- SMTP relay configuration
+- `/etc/apticron/apticron.conf`- apticron notification settings
+- `/etc/cron.d/debsecan-report`- cron schedule for daily CVE scan
+- `/usr/local/bin/debsecan-filtered.sh`- filter script (copied and `sed`-replaced with new email values)
 
 ### Idempotent operations
 
 - `apt-get install -y` skips already-installed packages with no side effects.
-- The `/etc/mail.rc` `set sendmail` entry is deduplicated automatically — the old line is removed via `sed` before the new one is appended.
+- The `/etc/mail.rc` `set sendmail` entry is deduplicated automatically - the old line is removed via `sed` before the new one is appended.
 - Component status checks and test emails confirm the new configuration works.
 
 ### Re-upload files first
@@ -270,7 +270,7 @@ sudo REMOVE_ALL=1 REMOVE_PACKAGES=1 bash uninstall.sh
 
 ### Manual uninstallation
 
-If you'd rather do it by hand, run these as root. Each step is independent — skip any you want to keep.
+If you'd rather do it by hand, run these as root. Each step is independent - skip any you want to keep.
 
 ```bash
 # 1. Remove the cron job
@@ -299,4 +299,4 @@ rm -f /var/log/msmtp.log
 apt-get remove --purge msmtp msmtp-mta mailutils apticron debsecan
 ```
 
-After uninstallation, the system will no longer send CVE or package update alerts. If `msmtp` was the only mail handler configured on this system, removing it will also disable any other mail-dependent services — verify before removing packages.
+After uninstallation, the system will no longer send CVE or package update alerts. If `msmtp` was the only mail handler configured on this system, removing it will also disable any other mail-dependent services - verify before removing packages.

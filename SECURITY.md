@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-This project is at version 1.0 or later. Because this is a small project, **only the newest major release line** receives security updates. Once a new major version is published, the previous major version is no longer supported — please plan to upgrade.
+This project is at version 1.0 or later. Because this is a small project, **only the newest major release line** receives security updates. Once a new major version is published, the previous major version is no longer supported - please plan to upgrade.
 
 | Version                              | Supported          |
 | ------------------------------------ | ------------------ |
@@ -34,8 +34,8 @@ In-scope:
 
 Out of scope:
 
-- Vulnerabilities in upstream Debian packages (`msmtp`, `apticron`, `debsecan`) — please report those to the Debian security team
-- Vulnerabilities in your SMTP provider — report those to the provider directly
+- Vulnerabilities in upstream Debian packages (`msmtp`, `apticron`, `debsecan`) - please report those to the Debian security team
+- Vulnerabilities in your SMTP provider - report those to the provider directly
 - General hardening suggestions for your own host (use a feature request issue instead)
 
 ## Note on the project's purpose

@@ -16,7 +16,7 @@ The log shows every send attempt with the SMTP response. Common patterns:
 
 | Log message | Meaning | Fix |
 | --- | --- | --- |
-| `host=... tls=on auth=on user=... ... smtpstatus=535` | Authentication rejected | Wrong username/password — check `/etc/msmtprc` |
+| `host=... tls=on auth=on user=... ... smtpstatus=535` | Authentication rejected | Wrong username/password - check `/etc/msmtprc` |
 | `smtpstatus=550 ... sender ... not verified` | Sender not verified with provider | Verify the `From:` address with your SMTP provider |
 | `smtpstatus=421` or connection timeouts | Network/firewall block | Check outbound port access (try `nc -vz <smtp-host> <port>`) |
 | Log file is empty | `msmtp` never ran | See "msmtp not invoked" below |
@@ -77,8 +77,8 @@ sudo debsecan --suite "$(. /etc/os-release && echo $VERSION_CODENAME)" --format 
 ```
 
 Common causes:
-- **No outbound HTTPS** — corporate firewall blocking the security tracker. Configure an HTTPS proxy via the `https_proxy` env var in `/etc/cron.d/debsecan-report`.
-- **Unrecognized suite** — happens on Debian-derivatives that don't match the Debian Security Tracker suite naming. Override by adding `--suite bookworm` (or whichever upstream Debian release your system is based on) to the cron entry.
+- **No outbound HTTPS** - corporate firewall blocking the security tracker. Configure an HTTPS proxy via the `https_proxy` env var in `/etc/cron.d/debsecan-report`.
+- **Unrecognized suite** - happens on Debian-derivatives that don't match the Debian Security Tracker suite naming. Override by adding `--suite bookworm` (or whichever upstream Debian release your system is based on) to the cron entry.
 
 ## "I'm not getting daily emails, but the test email worked"
 
@@ -88,7 +88,7 @@ The cron job is silent if no actionable CVEs exist. Confirm by running the filte
 sudo /usr/local/bin/debsecan-filtered.sh --test
 ```
 
-`--test` always emails, regardless of result count. If that sends, the daily cron is working — you just have no actionable CVEs (which is the goal, but verify with `--test` periodically).
+`--test` always emails, regardless of result count. If that sends, the daily cron is working - you just have no actionable CVEs (which is the goal, but verify with `--test` periodically).
 
 If the test email DOESN'T arrive, but the setup email did, one of two things is happening:
 1. The filter is hitting an error mid-run. Check `journalctl -u cron --since "1 hour ago"` for stderr output.
@@ -140,8 +140,8 @@ done
 ```
 
 Edge cases:
-- **Process running from a non-package binary** (e.g., `/opt/myapp/bin/server`) — `dpkg -S` won't find it, so the package won't be in `LISTEN_MAP`. The filter will not catch CVEs against this. Either install the binary via a `.deb` package or accept the gap.
-- **Container runtime listening** — Docker, Podman, etc. The package owning `dockerd` is `docker-ce` or `docker.io`, but the containerized services running on top are NOT discovered by `ss -tlnp` on the host. Run a separate scanner inside containers.
+- **Process running from a non-package binary** (e.g., `/opt/myapp/bin/server`) - `dpkg -S` won't find it, so the package won't be in `LISTEN_MAP`. The filter will not catch CVEs against this. Either install the binary via a `.deb` package or accept the gap.
+- **Container runtime listening** - Docker, Podman, etc. The package owning `dockerd` is `docker-ce` or `docker.io`, but the containerized services running on top are NOT discovered by `ss -tlnp` on the host. Run a separate scanner inside containers.
 
 ## "The cache is corrupt" / "I see weird CVE counts"
 
@@ -152,7 +152,7 @@ sudo /usr/local/bin/debsecan-filtered.sh --flush-cache
 sudo /usr/local/bin/debsecan-filtered.sh --test
 ```
 
-This rebuilds `triage-skip.csv` and `seen-cves.csv` from scratch. The next email will show every actionable CVE as "new since last run" because the cache has no history yet — that's expected, and counts will normalize on subsequent runs.
+This rebuilds `triage-skip.csv` and `seen-cves.csv` from scratch. The next email will show every actionable CVE as "new since last run" because the cache has no history yet - that's expected, and counts will normalize on subsequent runs.
 
 ## "I'm getting WAY too many Bucket A emails"
 

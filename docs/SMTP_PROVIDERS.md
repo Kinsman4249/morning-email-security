@@ -8,7 +8,7 @@ The installer defaults to SMTP2GO, but `morning-email-security` works with any S
 > 2. Username + password (sometimes a separate API key)
 > 3. A **verified sender** address (the `From:`)
 
-If your alert emails aren't arriving, the most common cause is an unverified sender — providers silently drop messages from addresses they haven't verified.
+If your alert emails aren't arriving, the most common cause is an unverified sender - providers silently drop messages from addresses they haven't verified.
 
 ## SMTP2GO (default)
 
@@ -35,10 +35,10 @@ sudo SMTP_HOST="mail.smtp2go.com" \
 | --- | --- |
 | Host | `email-smtp.<region>.amazonaws.com` (e.g. `email-smtp.us-east-1.amazonaws.com`) |
 | Port | `587` (STARTTLS) or `465` (TLS wrapper) |
-| Auth | SES SMTP credentials — **NOT** your AWS access keys |
+| Auth | SES SMTP credentials - **NOT** your AWS access keys |
 | Sender verification | Domain or address verification in SES console |
 
-**Notes:** Generate SES SMTP credentials in the SES console under "SMTP settings" → "Create SMTP credentials". You'll get a username and password that are derived from an IAM user but distinct from your AWS access key. New accounts start in the SES sandbox — you can only send to verified addresses until you request production access.
+**Notes:** Generate SES SMTP credentials in the SES console under "SMTP settings" -> "Create SMTP credentials". You'll get a username and password that are derived from an IAM user but distinct from your AWS access key. New accounts start in the SES sandbox - you can only send to verified addresses until you request production access.
 
 ```bash
 sudo SMTP_HOST="email-smtp.us-east-1.amazonaws.com" \
@@ -57,7 +57,7 @@ sudo SMTP_HOST="email-smtp.us-east-1.amazonaws.com" \
 | Auth | SMTP username = `postmaster@<your-domain>`, password = SMTP password (NOT API key) |
 | Sender verification | Domain verification (DNS-based) |
 
-**Notes:** Mailgun's SMTP password is separate from the API key — find it in the dashboard under "Domains" → click your domain → "SMTP credentials". The username includes `postmaster@` followed by the domain you've verified.
+**Notes:** Mailgun's SMTP password is separate from the API key - find it in the dashboard under "Domains" -> click your domain -> "SMTP credentials". The username includes `postmaster@` followed by the domain you've verified.
 
 ```bash
 sudo SMTP_HOST="smtp.mailgun.org" \
@@ -76,7 +76,7 @@ sudo SMTP_HOST="smtp.mailgun.org" \
 | Auth | Username = your **Server API token**, password = same Server API token |
 | Sender verification | Domain (DKIM) or single-address verification |
 
-**Notes:** Postmark uses the Server API token as both username and password — odd but works. Get it from the server's "API Tokens" tab. Postmark is strict about sender verification; expect emails to bounce until your domain or sender is verified.
+**Notes:** Postmark uses the Server API token as both username and password - odd but works. Get it from the server's "API Tokens" tab. Postmark is strict about sender verification; expect emails to bounce until your domain or sender is verified.
 
 ```bash
 sudo SMTP_HOST="smtp.postmarkapp.com" \
@@ -95,7 +95,7 @@ sudo SMTP_HOST="smtp.postmarkapp.com" \
 | Auth | Username = literally the string `apikey`, password = your SendGrid API key |
 | Sender verification | Domain authentication or single-sender verification |
 
-**Notes:** The username is always the literal string `apikey` — that's not a placeholder. The password is the API key (starts with `SG.`). Generate it in Settings → API Keys with at least "Mail Send" permission.
+**Notes:** The username is always the literal string `apikey`- that's not a placeholder. The password is the API key (starts with `SG.`). Generate it in Settings -> API Keys with at least "Mail Send" permission.
 
 ```bash
 sudo SMTP_HOST="smtp.sendgrid.net" \
@@ -114,9 +114,9 @@ sudo SMTP_HOST="smtp.sendgrid.net" \
 | Auth | Gmail address + **App Password** (NOT your account password) |
 | Sender verification | Must send from the authenticated Gmail address (or a verified Send-As alias) |
 
-**Notes:** You must enable 2-Step Verification on the Google account, then generate an App Password (myaccount.google.com → Security → App passwords). Regular account passwords don't work for SMTP. Daily send limits apply: ~500/day for personal Gmail, ~2000/day for Workspace.
+**Notes:** You must enable 2-Step Verification on the Google account, then generate an App Password (myaccount.google.com -> Security -> App passwords). Regular account passwords don't work for SMTP. Daily send limits apply: ~500/day for personal Gmail, ~2000/day for Workspace.
 
-For a CVE-alert use case (a few emails per day), this is fine — but it's worth knowing if you plan to deploy to many hosts using the same Gmail account.
+For a CVE-alert use case (a few emails per day), this is fine - but it's worth knowing if you plan to deploy to many hosts using the same Gmail account.
 
 ```bash
 sudo SMTP_HOST="smtp.gmail.com" \

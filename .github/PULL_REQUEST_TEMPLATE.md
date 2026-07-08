@@ -16,7 +16,7 @@
 
 How did you verify this works?
 
-- [ ] Ran `shellcheck setup-cve-alerts.sh debsecan-filtered.sh uninstall.sh` locally — clean
+- [ ] Ran `shellcheck setup-cve-alerts.sh debsecan-filtered.sh uninstall.sh` locally - clean
 - [ ] Ran `sudo bash setup-cve-alerts.sh` end-to-end on a clean Debian 12 / Ubuntu 24.04 VM or container
 - [ ] Confirmed both setup emails arrived
 - [ ] Ran `sudo /usr/local/bin/debsecan-filtered.sh --test` and verified output

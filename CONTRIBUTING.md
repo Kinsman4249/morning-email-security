@@ -17,12 +17,12 @@ Open an issue using the **Bug report** template. Please include:
 
 ## How to propose a feature
 
-Open an issue using the **Feature request** template. Describe the use case before the implementation — knowing *why* is more useful than *what* in early discussion.
+Open an issue using the **Feature request** template. Describe the use case before the implementation - knowing *why* is more useful than *what* in early discussion.
 
 ## How to submit a change
 
 1. **Fork** the repo and create a feature branch (`git checkout -b feat/short-description`).
-2. **Make your change.** Keep changes focused — one logical change per PR.
+2. **Make your change.** Keep changes focused - one logical change per PR.
 3. **Test it.**
    - For installer changes: spin up a clean Debian 12 or Ubuntu 24.04 VM/container and run `sudo bash setup-cve-alerts.sh` end-to-end. Confirm both setup emails arrive.
    - For filter changes: run `sudo /usr/local/bin/debsecan-filtered.sh --test` against a host with known CVEs. Compare output before/after.
@@ -37,8 +37,8 @@ Open an issue using the **Feature request** template. Describe the use case befo
 ## Coding conventions
 
 - **Bash:** target Bash 5+ (Debian 11 ships 5.1). Use `set -eo pipefail` at the top of every script. Prefer `[[ ]]` over `[ ]`. Quote all variable expansions.
-- **Comments:** explain *why*, not *what*. The Phase 1–9 banner comments in `debsecan-filtered.sh` are a good model.
-- **No new dependencies** without strong justification — the appeal of this project is the small, predictable surface area (`msmtp`, `apticron`, `debsecan`, plus core utilities).
+- **Comments:** explain *why*, not *what*. The Phase 1-9 banner comments in `debsecan-filtered.sh` are a good model.
+- **No new dependencies** without strong justification - the appeal of this project is the small, predictable surface area (`msmtp`, `apticron`, `debsecan`, plus core utilities).
 - **No telemetry, ever.** This is a security tool. It must not phone home.
 
 ## Commit messages

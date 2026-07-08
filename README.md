@@ -1,6 +1,6 @@
 # debsecan-filtered.sh
 
-Actionable CVE alerting for Debian servers — powered by `debsecan`, filtered to cut the noise.
+Actionable CVE alerting for Debian servers - powered by `debsecan`, filtered to cut the noise.
 
 ## What It Does
 
@@ -9,18 +9,18 @@ Most Debian hosts carry dozens of CVEs that are low-risk or already triaged as *
 
 | Bucket | Criteria |
 |--------|----------|
-| **A — Patchable** | Fix available in Debian repos **AND** at least one of: remotely exploitable, high/critical urgency, or package has an open listening port |
-| **B — Unpatched (network-exposed)** | No fix available **AND** package has an open listening port (includes source-package expansion). CVEs triaged by Debian as `no-dsa`, `ignored`, `end-of-life`, `not-affected`, or `postponed` are **excluded**. |
+| **A - Patchable** | Fix available in Debian repos **AND** at least one of: remotely exploitable, high/critical urgency, or package has an open listening port |
+| **B - Unpatched (network-exposed)** | No fix available **AND** package has an open listening port (includes source-package expansion). CVEs triaged by Debian as `no-dsa`, `ignored`, `end-of-life`, `not-affected`, or `postponed` are **excluded**. |
 
 An email is sent only when **either** bucket has results.
 
 ## Design Principles
 
-- **Quiet by default** — no email when there's nothing to act on
-- **Deterministic** — same inputs → same output
-- **Cron-safe** — runs unattended, exits cleanly
-- **No external network calls** — trusts Debian's local `debsecan` judgement only
-- **Actionable only** — filters out noise so every alert deserves attention
+- **Quiet by default** - no email when there's nothing to act on
+- **Deterministic** - same inputs -> same output
+- **Cron-safe** - runs unattended, exits cleanly
+- **No external network calls** - trusts Debian's local `debsecan` judgement only
+- **Actionable only** - filters out noise so every alert deserves attention
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ An email is sent only when **either** bucket has results.
 | Working SMTP relay | Default config targets SMTP2GO; any relay works |
 
 The setup script installs all required packages automatically:  
-`msmtp` · `msmtp-mta` · `mailutils` · `apticron` · `debsecan` · `ca-certificates` · `curl`
+`msmtp` - `msmtp-mta` - `mailutils` - `apticron` - `debsecan` - `ca-certificates` - `curl`
 
 ## Installation
 
@@ -45,12 +45,12 @@ The installer will prompt for:
 
 | Prompt | Default |
 |--------|---------|
-| From address | *(none — required)* |
-| To address | *(none — required)* |
+| From address | *(none - required)* |
+| To address | *(none - required)* |
 | SMTP host | `mail.smtp2go.com` |
 | SMTP port | `2525` |
-| SMTP username | *(none — required)* |
-| SMTP password | *(none — required, hidden)* |
+| SMTP username | *(none - required)* |
+| SMTP password | *(none - required, hidden)* |
 
 You can prefill any value via environment variables to skip its prompt:
 
@@ -87,8 +87,8 @@ sudo /usr/local/bin/debsecan-filtered.sh --flush-cache   # wipe cache and exit
 
 | Component | Frequency | Trigger |
 |-----------|-----------|---------|
-| **apticron** | Daily | `/etc/cron.daily/apticron` — emails when package updates are available |
-| **debsecan-filtered.sh** | Daily at 07:00 | `/etc/cron.d/debsecan-report` — emails when actionable CVEs are found |
+| **apticron** | Daily | `/etc/cron.daily/apticron`- emails when package updates are available |
+| **debsecan-filtered.sh** | Daily at 07:00 | `/etc/cron.d/debsecan-report`- emails when actionable CVEs are found |
 
 ## Uninstallation
 
