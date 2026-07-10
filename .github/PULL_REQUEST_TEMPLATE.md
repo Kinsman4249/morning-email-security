@@ -28,7 +28,7 @@ How did you verify this works?
 - [ ] Updated `README.md` if user-visible behavior changed
 - [ ] Updated `docs/SETUP_GUIDE.md` if installation flow changed
 - [ ] Updated `docs/ALERT_LOGIC.md` if filter pipeline changed
-- [ ] Added an entry under `[Unreleased]` in `CHANGELOG.md`
+- [ ] Added a numbered entry to `CHANGELOG.md` under the current round
 
 ## Related issues
 

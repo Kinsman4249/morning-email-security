@@ -31,7 +31,7 @@ Open an issue using the **Feature request** template. Describe the use case befo
    shellcheck setup-cve-alerts.sh debsecan-filtered.sh uninstall.sh
    ```
    The CI pipeline runs the same check on PRs.
-5. **Update documentation.** If your change alters behavior visible to users, update `README.md`, `docs/SETUP_GUIDE.md`, and `CHANGELOG.md` (under `[Unreleased]`).
+5. **Update documentation.** If your change alters behavior visible to users, update `README.md`, `docs/SETUP_GUIDE.md`, and `CHANGELOG.md` (add a new numbered entry under the current round).
 6. **Open a PR** against `main`. Fill in the PR template.
 
 ## Coding conventions
